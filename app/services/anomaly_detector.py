@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 
@@ -13,31 +13,27 @@ class AnomalyDetector:
     
     def detect_anomalies(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Detect anomalies in transactions:
-        1. Statistical outliers (amount > 3x account median)
-        2. Currency mismatches (USD with domestic merchants)
+        Detect anomalies following rules:
+        Rule 1: Amount > 3x account median
+        Rule 2: USD currency with domestic merchant
         
-        Args:
-            df: Cleaned transaction DataFrame
-            
-        Returns:
-            DataFrame with anomaly flags and reasons
+        Returns: DataFrame with is_anomaly and anomaly_reason columns
         """
         df = df.copy()
         df['is_anomaly'] = False
         df['anomaly_reason'] = None
         
-        # Detect statistical outliers
+        # Rule 1: Statistical outliers
         df = self._detect_statistical_outliers(df)
         
-        # Detect currency mismatches
+        # Rule 2: Currency mismatches
         df = self._detect_currency_mismatches(df)
         
         return df
     
     def _detect_statistical_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Flag transactions where amount exceeds 3x the account's median
+        Rule 1: Flag transactions where amount > 3x account median
         """
         # Calculate median amount per account
         account_medians = df.groupby('account_id')['amount'].median()
@@ -47,7 +43,7 @@ class AnomalyDetector:
             
             if account_median > 0 and row['amount'] > (3 * account_median):
                 df.at[idx, 'is_anomaly'] = True
-                reason = f"Statistical outlier: Amount {row['amount']} exceeds 3x account median {account_median:.2f}"
+                reason = f"Amount exceeds 3x account median"
                 
                 # Append to existing reason if any
                 if df.at[idx, 'anomaly_reason']:
@@ -59,7 +55,8 @@ class AnomalyDetector:
     
     def _detect_currency_mismatches(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Flag transactions where currency is USD but merchant is domestic-only
+        Rule 2: Flag transactions where currency is USD with domestic merchant
+        Domestic merchants: Swiggy, Ola, IRCTC
         """
         for idx, row in df.iterrows():
             merchant_lower = row['merchant'].lower()
@@ -71,7 +68,7 @@ class AnomalyDetector:
                 for domestic in self.domestic_merchants
             ):
                 df.at[idx, 'is_anomaly'] = True
-                reason = f"Currency mismatch: USD currency with domestic merchant {row['merchant']}"
+                reason = f"Domestic merchant using USD"
                 
                 # Append to existing reason if any
                 if df.at[idx, 'anomaly_reason']:

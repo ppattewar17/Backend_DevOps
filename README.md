@@ -12,14 +12,18 @@ This system accepts CSV files containing financial transactions, processes them 
 - **Worker**: Background workers for CSV processing pipeline
 - **AI/LLM**: OpenAI GPT-4o-mini for classification and insights
 
-## Features
-- Async CSV upload and processing
-- Data cleaning and normalization
-- Statistical anomaly detection
-- AI-powered transaction classification
-- Intelligent narrative summary generation
-- Retry logic with exponential backoff
-- Docker Compose deployment
+## ✨ Features
+- ✅ **POST /jobs/upload** - CSV file upload with validation
+- ✅ **GET /jobs/{job_id}/status** - Job polling with progress tracking
+- ✅ **GET /jobs/{job_id}/results** - Full structured results
+- ✅ **GET /jobs** - List all jobs with status filtering
+- ✅ Data cleaning and normalization
+- ✅ Statistical anomaly detection
+- ✅ AI-powered transaction classification (batched)
+- ✅ Intelligent narrative summary generation
+- ✅ Retry logic with exponential backoff (1s, 2s, 4s)
+- ✅ Graceful LLM failure handling
+- ✅ One-command Docker Compose deployment
 
 ## Prerequisites
 - Docker and Docker Compose
@@ -52,56 +56,81 @@ The API will be available at `http://localhost:8000`
 
 ### 1. Upload CSV and Create Job
 ```bash
-curl -X POST http://localhost:8000/jobs \
+curl -X POST http://localhost:8000/jobs/upload \
   -F "file=@transactions.csv"
 ```
 
 **Response:**
 ```json
 {
-  "job_id": "uuid",
-  "status": "PENDING",
-  "message": "Job created successfully"
+  "job_id": "f8c3de3d-1fea-4d7c-a8b0-29f63c4c3454",
+  "status": "pending"
 }
 ```
 
 ### 2. Get Job Status
 ```bash
-curl http://localhost:8000/jobs/{job_id}
+curl http://localhost:8000/jobs/{job_id}/status
 ```
 
 **Response:**
 ```json
 {
-  "id": "uuid",
-  "filename": "transactions.csv",
-  "status": "PROCESSING",
-  "row_count_raw": 90,
-  "row_count_clean": 85,
-  "created_at": "2024-06-10T10:30:00Z",
-  "completed_at": null
+  "job_id": "f8c3de3d-1fea-4d7c-a8b0-29f63c4c3454",
+  "status": "processing",
+  "progress": 45,
+  "summary": null
 }
 ```
 
-### 3. Get Job Summary
+When completed:
+```json
+{
+  "job_id": "f8c3de3d-1fea-4d7c-a8b0-29f63c4c3454",
+  "status": "completed",
+  "progress": 100,
+  "summary": {
+    "total_spend_inr": 250000.50,
+    "total_spend_usd": 3500.25,
+    "top_merchants": [
+      {"merchant": "Amazon", "count": 25, "total_amount": 45000.0},
+      {"merchant": "Swiggy", "count": 18, "total_amount": 12500.0}
+    ],
+    "anomaly_count": 12,
+    "narrative": "High spending observed on shopping platforms...",
+    "risk_level": "medium"
+  }
+}
+```
+
+### 3. Get Job Results (Full Details)
 ```bash
-curl http://localhost:8000/jobs/{job_id}/summary
+curl http://localhost:8000/jobs/{job_id}/results
 ```
 
 **Response:**
 ```json
 {
-  "job_id": "uuid",
-  "total_spend_inr": 250000.50,
-  "total_spend_usd": 3500.25,
-  "top_merchants": [
-    {"merchant": "Amazon", "count": 25},
-    {"merchant": "Swiggy", "count": 18},
-    {"merchant": "Flipkart", "count": 15}
-  ],
-  "anomaly_count": 12,
-  "narrative": "High spending observed on shopping platforms...",
-  "risk_level": "medium"
+  "job": {
+    "id": "uuid",
+    "filename": "transactions.csv",
+    "status": "completed",
+    "row_count_raw": 90,
+    "row_count_clean": 85,
+    "created_at": "2024-06-10T10:30:00Z",
+    "completed_at": "2024-06-10T10:32:15Z"
+  },
+  "cleaned_transactions": [...],
+  "anomalies": [...],
+  "category_breakdown": {
+    "Food": 25000.00,
+    "Shopping": 45000.00,
+    "Travel": 15000.00
+  },
+  "llm_summary": {
+    "narrative": "...",
+    "risk_level": "medium"
+  }
 }
 ```
 
@@ -111,7 +140,24 @@ curl http://localhost:8000/jobs/{job_id}/summary
 curl http://localhost:8000/jobs
 
 # Filter by status
-curl "http://localhost:8000/jobs?status=COMPLETED"
+curl "http://localhost:8000/jobs?status=completed"
+curl "http://localhost:8000/jobs?status=pending"
+curl "http://localhost:8000/jobs?status=processing"
+curl "http://localhost:8000/jobs?status=failed"
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "filename": "transactions.csv",
+    "status": "completed",
+    "row_count_raw": 90,
+    "row_count_clean": 85,
+    "created_at": "2024-06-10T10:30:00Z"
+  }
+]
 ```
 
 ## Processing Pipeline

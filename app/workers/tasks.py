@@ -2,21 +2,21 @@ import pandas as pd
 import os
 from datetime import datetime
 from sqlalchemy.orm import Session
-from app.worker import celery_app
-from app.database import SessionLocal
+from app.workers.celery_app import celery_app
+from app.db.session import SessionLocal
 from app.models import Job, Transaction, JobSummary, JobStatus
 from app.services.data_cleaner import DataCleaner
 from app.services.anomaly_detector import AnomalyDetector
 from app.services.llm_service import LLMService
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 
 
-@celery_app.task(bind=True, name="app.tasks.process_transaction_file")
+@celery_app.task(bind=True, name="app.workers.tasks.process_transaction_file")
 def process_transaction_file(self, job_id: str, file_path: str):
     """
-    Process transaction CSV file asynchronously
+    Process transaction CSV file asynchronously with progress tracking
     
     Args:
         job_id: UUID of the job
@@ -31,24 +31,35 @@ def process_transaction_file(self, job_id: str, file_path: str):
             raise ValueError(f"Job {job_id} not found")
         
         job.status = JobStatus.PROCESSING
+        job.progress = 10
         db.commit()
         
         # Read CSV file
         df = pd.read_csv(file_path)
-        job.row_count_raw = len(df)
+        
+        # Step 1: Data Cleaning (20% progress)
+        job.progress = 20
         db.commit()
         
-        # Step 1: Data Cleaning
         cleaner = DataCleaner()
-        df_cleaned = cleaner.clean_data(df)
-        job.row_count_clean = len(df_cleaned)
+        df_cleaned, raw_count, clean_count = cleaner.clean_data(df)
+        
+        job.row_count_raw = raw_count
+        job.row_count_clean = clean_count
+        job.progress = 30
         db.commit()
         
-        # Step 2: Anomaly Detection
+        # Step 2: Anomaly Detection (40% progress)
+        job.progress = 40
+        db.commit()
+        
         detector = AnomalyDetector()
         df_with_anomalies = detector.detect_anomalies(df_cleaned)
         
-        # Save transactions to database
+        # Step 3: Save transactions to database (50% progress)
+        job.progress = 50
+        db.commit()
+        
         transactions = []
         for _, row in df_with_anomalies.iterrows():
             transaction = Transaction(
@@ -70,7 +81,10 @@ def process_transaction_file(self, job_id: str, file_path: str):
         
         db.commit()
         
-        # Step 3: LLM Classification for missing categories
+        # Step 4: LLM Classification for missing categories (70% progress)
+        job.progress = 70
+        db.commit()
+        
         llm_service = LLMService()
         transactions_without_category = [
             t for t in transactions 
@@ -84,26 +98,32 @@ def process_transaction_file(self, job_id: str, file_path: str):
                 )
                 
                 for transaction, category_data in zip(transactions_without_category, categories):
-                    transaction.llm_category = category_data['category']
+                    transaction.llm_category = category_data.get('category', 'Other')
                     transaction.llm_raw_response = str(category_data)
                     transaction.llm_failed = False
                 
                 db.commit()
             except Exception as e:
-                print(f"LLM Classification failed: {e}")
+                print(f"LLM Classification failed after retries: {e}")
                 for transaction in transactions_without_category:
                     transaction.llm_failed = True
                 db.commit()
         
-        # Step 4: Generate Summary
+        # Step 5: Generate Summary (80% progress)
+        job.progress = 80
+        db.commit()
+        
         summary_data = _generate_summary(db, job_id, transactions)
         
-        # Step 5: LLM Narrative Generation
+        # Step 6: LLM Narrative Generation (90% progress)
+        job.progress = 90
+        db.commit()
+        
         try:
-            narrative_data = llm_service.generate_narrative(summary_data, transactions)
+            narrative_data = llm_service.generate_summary(summary_data, transactions)
             summary_data.update(narrative_data)
         except Exception as e:
-            print(f"LLM Narrative generation failed: {e}")
+            print(f"LLM Narrative generation failed after retries: {e}")
             summary_data['narrative'] = "Unable to generate narrative due to LLM failure"
             summary_data['risk_level'] = "unknown"
         
@@ -119,8 +139,9 @@ def process_transaction_file(self, job_id: str, file_path: str):
         )
         db.add(job_summary)
         
-        # Update job status to COMPLETED
+        # Update job status to COMPLETED (100% progress)
         job.status = JobStatus.COMPLETED
+        job.progress = 100
         job.completed_at = datetime.utcnow()
         db.commit()
         

@@ -2,67 +2,65 @@ import pandas as pd
 import re
 from dateutil import parser
 from datetime import datetime
+from typing import Tuple
 
 
 class DataCleaner:
     """Service for cleaning and normalizing transaction data"""
     
-    def clean_data(self, df: pd.DataFrame) -> pd.DataFrame:
+    def clean_data(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, int, int]:
         """
-        Clean transaction data:
-        - Normalize date formats to ISO 8601
-        - Strip currency symbols from amounts
-        - Uppercase status values
-        - Fill missing categories with 'Uncategorised'
-        - Remove exact duplicate rows
+        Clean transaction data following the pipeline:
+        A. Normalize dates to YYYY-MM-DD
+        B. Strip currency symbols
+        C. Uppercase status
+        D. Fill missing categories
+        E. Remove exact duplicates
         
-        Args:
-            df: Raw transaction DataFrame
-            
-        Returns:
-            Cleaned DataFrame
+        Returns: (cleaned_df, raw_count, clean_count)
         """
-        df = df.copy()
+        raw_count = len(df)
         
-        # Normalize dates
+        # A. Normalize dates
         df['date'] = df['date'].apply(self._normalize_date)
         
-        # Clean amounts (remove currency symbols)
+        # B. Strip currency symbols
         df['amount'] = df['amount'].apply(self._clean_amount)
         
-        # Uppercase status values
+        # C. Uppercase status
         df['status'] = df['status'].str.upper()
         
-        # Normalize currency
+        # D. Normalize currency
         df['currency'] = df['currency'].str.upper()
         
-        # Fill missing categories
+        # E. Fill missing categories
         df['category'] = df['category'].fillna('Uncategorised')
         df['category'] = df['category'].replace('', 'Uncategorised')
         
-        # Fill missing notes
+        # F. Fill missing notes
         df['notes'] = df['notes'].fillna('')
         
-        # Remove exact duplicates
+        # G. Remove exact duplicates
         df = df.drop_duplicates()
         
-        return df
+        clean_count = len(df)
+        
+        return df, raw_count, clean_count
     
     def _normalize_date(self, date_str: str) -> datetime:
         """
-        Normalize date string to ISO 8601 format
+        Normalize date string to YYYY-MM-DD format
         
-        Handles formats:
+        Handles:
         - DD-MM-YYYY
         - YYYY/MM/DD
         - MM-DD-YYYY
         """
         try:
             # Try parsing with dateutil (handles most formats)
-            dt = parser.parse(str(date_str), dayfirst=False)
+            dt = parser.parse(str(date_str), dayfirst=True)
             return dt
         except Exception as e:
-            # Fallback to current date if parsing fails
             print(f"Date parsing failed for '{date_str}': {e}")
             return datetime.utcnow()
     

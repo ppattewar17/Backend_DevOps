@@ -3,15 +3,20 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    """Application settings"""
+    """Application configuration"""
+    
+    # API
+    API_V1_STR: str = "/api/v1"
+    PROJECT_NAME: str = "AI-Powered Transaction Processing Pipeline"
+    VERSION: str = "1.0.0"
     
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/transactions_db"
+    DATABASE_URL: str = "postgresql://user:password@db:5432/transactions_db"
     
     # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://redis:6379/0"
     
-    # OpenAI
+    # OpenAI API
     OPENAI_API_KEY: str
     OPENAI_MODEL: str = "gpt-4o-mini"
     
@@ -21,12 +26,12 @@ class Settings(BaseSettings):
     
     # Retry settings
     MAX_RETRIES: int = 3
-    RETRY_BACKOFF_BASE: int = 2  # seconds
+    RETRY_BACKOFF_MULTIPLIER: int = 1  # 1s, 2s, 4s
     
     # Categories
     VALID_CATEGORIES: list = [
         "Food",
-        "Shopping", 
+        "Shopping",
         "Travel",
         "Transport",
         "Utilities",
@@ -35,16 +40,11 @@ class Settings(BaseSettings):
         "Other"
     ]
     
-    # Domestic merchants
+    # Domestic merchants (for anomaly detection)
     DOMESTIC_MERCHANTS: list = [
         "Swiggy",
         "Ola",
-        "IRCTC",
-        "Zomato",
-        "Flipkart",
-        "Paytm",
-        "PhonePe",
-        "Jio"
+        "IRCTC"
     ]
     
     class Config:

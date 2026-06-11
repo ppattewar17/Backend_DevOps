@@ -3,13 +3,13 @@ import time
 from typing import List, Dict
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 
 
 class LLMService:
-    """Service for LLM-based transaction classification and narrative generation"""
+    """Service for OpenAI-based transaction classification and narrative generation"""
     
     def __init__(self):
         self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -18,11 +18,12 @@ class LLMService:
     
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=2, max=10)
+        wait=wait_exponential(multiplier=1, min=1, max=4)
     )
     def classify_transactions_batch(self, transactions: List) -> List[Dict]:
         """
-        Classify transactions in batch using LLM
+        Classify transactions in batch using OpenAI
+        Retries: 3 times with exponential backoff (1s, 2s, 4s)
         
         Args:
             transactions: List of Transaction objects without categories
@@ -42,9 +43,9 @@ class LLMService:
             
             # Create prompt with transaction details
             transactions_text = []
-            for t in batch:
+            for idx, t in enumerate(batch):
                 transactions_text.append(
-                    f"- Merchant: {t.merchant}, Amount: {t.amount} {t.currency}, "
+                    f"{idx+1}. Merchant: {t.merchant}, Amount: {t.amount} {t.currency}, "
                     f"Status: {t.status}, Notes: {t.notes or 'None'}"
                 )
             
@@ -93,11 +94,12 @@ Format: [{{"category": "Food"}}, {{"category": "Shopping"}}, ...]
     
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=2, max=10)
+        wait=wait_exponential(multiplier=1, min=1, max=4)
     )
-    def generate_narrative(self, summary_data: Dict, transactions: List) -> Dict:
+    def generate_summary(self, summary_data: Dict, transactions: List) -> Dict:
         """
-        Generate narrative summary and risk assessment using LLM
+        Generate narrative summary and risk assessment using OpenAI
+        Retries: 3 times with exponential backoff (1s, 2s, 4s)
         
         Args:
             summary_data: Dict with summary statistics
@@ -106,7 +108,9 @@ Format: [{{"category": "Food"}}, {{"category": "Shopping"}}, ...]
         Returns:
             Dict with 'narrative' and 'risk_level' keys
         """
-        # Prepare transaction summary for LLM
+        # Prepare transaction summary for OpenAI
+        anomaly_examples = self._format_anomalies(transactions)
+        
         prompt = f"""Analyze the following financial transaction summary and provide insights:
 
 **Summary Statistics:**
@@ -116,7 +120,7 @@ Format: [{{"category": "Food"}}, {{"category": "Shopping"}}, ...]
 - Anomaly Count: {summary_data['anomaly_count']} out of {len(transactions)} transactions
 
 **Anomalies Detected:**
-{self._format_anomalies(transactions)}
+{anomaly_examples}
 
 Generate a JSON response with:
 1. "narrative": A 2-3 sentence spending analysis highlighting key patterns, concerns, or insights

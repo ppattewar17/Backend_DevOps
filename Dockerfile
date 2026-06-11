@@ -20,5 +20,5 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p /app/uploads
 
-# Run database migrations on startup
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Default command (overridden in docker-compose)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

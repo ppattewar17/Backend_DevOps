@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 
@@ -21,7 +21,7 @@ Base = declarative_base()
 
 
 def get_db():
-    """Dependency for getting database session"""
+    """Database session dependency"""
     db = SessionLocal()
     try:
         yield db
@@ -31,5 +31,5 @@ def get_db():
 
 def init_db():
     """Initialize database tables"""
-    from app.models import Job, Transaction, JobSummary
+    from app.models import job, transaction, job_summary
     Base.metadata.create_all(bind=engine)
