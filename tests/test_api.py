@@ -14,7 +14,7 @@ def test_health_check():
 
 def test_create_job_no_file():
     """Test job creation without file"""
-    response = client.post("/jobs")
+    response = client.post("/jobs/upload")
     assert response.status_code == 422  # Validation error
 
 

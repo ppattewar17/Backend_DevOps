@@ -4,7 +4,7 @@ To use: Rename this file to llm_service.py
 """
 import random
 from typing import List, Dict
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 

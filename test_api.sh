@@ -34,7 +34,7 @@ fi
 
 # Upload CSV
 echo -e "${YELLOW}Uploading transactions.csv...${NC}"
-UPLOAD_RESPONSE=$(curl -s -X POST $API_URL/jobs \
+UPLOAD_RESPONSE=$(curl -s -X POST $API_URL/jobs/upload \
   -F "file=@transactions.csv")
 
 echo "$UPLOAD_RESPONSE" | jq '.'
@@ -60,17 +60,17 @@ while [ $COMPLETED = false ] && [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
     sleep 5
     ATTEMPTS=$((ATTEMPTS + 1))
     
-    STATUS_RESPONSE=$(curl -s $API_URL/jobs/$JOB_ID)
+    STATUS_RESPONSE=$(curl -s $API_URL/jobs/$JOB_ID/status)
     STATUS=$(echo $STATUS_RESPONSE | jq -r '.status')
     ROW_COUNT_RAW=$(echo $STATUS_RESPONSE | jq -r '.row_count_raw // "N/A"')
     ROW_COUNT_CLEAN=$(echo $STATUS_RESPONSE | jq -r '.row_count_clean // "N/A"')
     
     echo -e "${BLUE}Status: $STATUS | Raw: $ROW_COUNT_RAW | Clean: $ROW_COUNT_CLEAN${NC}"
     
-    if [ "$STATUS" = "COMPLETED" ]; then
+    if [ "$STATUS" = "completed" ]; then
         COMPLETED=true
         echo -e "${GREEN}✓ Job completed successfully!${NC}"
-    elif [ "$STATUS" = "FAILED" ]; then
+    elif [ "$STATUS" = "failed" ]; then
         echo -e "${RED}❌ Job failed!${NC}"
         ERROR=$(echo $STATUS_RESPONSE | jq -r '.error_message')
         echo "Error: $ERROR"
@@ -87,12 +87,12 @@ echo ""
 
 # Get full job details
 echo -e "${YELLOW}Job Details:${NC}"
-curl -s $API_URL/jobs/$JOB_ID | jq '.'
+curl -s $API_URL/jobs/$JOB_ID/status | jq '.'
 echo ""
 
 # Get summary
 echo -e "${YELLOW}Fetching summary...${NC}"
-SUMMARY=$(curl -s $API_URL/jobs/$JOB_ID/summary)
+SUMMARY=$(curl -s $API_URL/jobs/$JOB_ID/results | jq '.llm_summary')
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Failed to fetch summary${NC}"
@@ -137,6 +137,6 @@ echo -e "${GREEN}✓ Test completed successfully!${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo ""
 echo "Job ID: $JOB_ID"
-echo "Summary URL: $API_URL/jobs/$JOB_ID/summary"
+echo "Results URL: $API_URL/jobs/$JOB_ID/results"
 echo "API Docs: $API_URL/docs"
 echo ""

@@ -11,6 +11,7 @@ This system accepts CSV files containing financial transactions, processes them 
 - **Queue**: Redis + Celery for distributed async processing
 - **Worker**: Background workers for CSV processing pipeline
 - **AI/LLM**: OpenAI GPT-4o-mini for classification and insights
+- **Mock LLM**: Use `llm_service_mock.py` for testing without API key (rename to `llm_service.py`)
 
 ## ✨ Features
 - ✅ **POST /jobs/upload** - CSV file upload with validation
@@ -238,7 +239,7 @@ curl "http://localhost:8000/jobs?status=failed"
 - **API**: FastAPI (Python)
 - **Database**: PostgreSQL
 - **Queue**: Redis + Celery
-- **LLM**: OpenAI GPT-4
+- **LLM**: OpenAI GPT-4o-mini
 - **ORM**: SQLAlchemy
 - **Containerization**: Docker + Docker Compose
 

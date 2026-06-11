@@ -8,9 +8,9 @@ import sys
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app.database import Base
+from app.db.session import Base
 from app.models import Job, Transaction, JobSummary
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 
